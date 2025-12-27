@@ -2,7 +2,7 @@ name: Update Google Scholar Citations Badge
 
 on:
   schedule:
-    - cron: "0 3 * * *"   # daily. Much less likely to trigger blocking
+    - cron: "0 3 * * *"   # daily
   workflow_dispatch:
 
 permissions:
