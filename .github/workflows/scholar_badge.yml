@@ -2,7 +2,7 @@ name: Update Google Scholar badge
 
 on:
   schedule:
-    - cron: "0 8 * * *"   # daily 08:00 UTC
+    - cron: "0 8 * * *"
   workflow_dispatch:
 
 permissions:
@@ -14,28 +14,25 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
-      - name: Install gsbg
-        run: pip install gsbg
+      - run: pip install gsbg
 
-      - name: Generate badge SVG
+      - name: Generate citations.svg
         run: |
           python - << 'PY'
 import gsbg
-profile = "https://scholar.google.com/citations?user=RqHme84AAAAJ&hl=en"
 gsbg.gene_citation_badge_svg(
-    link=profile,
+    link="https://scholar.google.com/citations?user=RqHme84AAAAJ&hl=en",
     link_type="profile",
     svg_name="citations.svg",
-    path_to_save="."
+    path_to_save=".",
 )
 PY
 
-      - name: Commit updated badge
+      - name: Commit and push
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
