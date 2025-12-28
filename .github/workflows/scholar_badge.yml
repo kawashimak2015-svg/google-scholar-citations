@@ -2,7 +2,8 @@ name: Update Google Scholar badge
 
 on:
   schedule:
-    - cron: "0 8 * * *"
+    # Daily at 08:17 UTC (a non-round minute helps avoid synchronized traffic)
+    - cron: "17 8 * * *"
   workflow_dispatch:
 
 permissions:
@@ -12,27 +13,62 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: true
 
-      - uses: actions/setup-python@v5
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
-      - run: pip install gsbg
+      - name: Install gsbg
+        run: |
+          python -m pip install --upgrade pip
+          pip install --upgrade gsbg
 
-      - name: Generate citations.svg
+      - name: Generate citations.svg (retry on HTTP 429)
         run: |
           python - << 'PY'
+import time, random, sys
 import gsbg
-gsbg.gene_citation_badge_svg(
-    link="https://scholar.google.com/citations?user=RqHme84AAAAJ&hl=en",
-    link_type="profile",
-    svg_name="citations.svg",
-    path_to_save=".",
-)
+
+url = "https://scholar.google.com/citations?user=RqHme84AAAAJ&hl=en"
+
+# Small random delay to avoid always hitting Scholar at the same second
+time.sleep(random.randint(5, 90))
+
+max_attempts = 6
+
+for attempt in range(1, max_attempts + 1):
+    try:
+        gsbg.gene_citation_badge_svg(
+            link=url,
+            link_type="profile",
+            svg_name="citations.svg",
+            path_to_save=".",
+        )
+        print("OK: citations.svg updated")
+        sys.exit(0)
+    except Exception as e:
+        msg = str(e)
+        print(f"Attempt {attempt} failed: {msg}")
+
+        # Retry only for rate-limiting style errors
+        if ("429" in msg) or ("Too Many Requests" in msg) or ("rate" in msg.lower()):
+            wait = 60 * attempt  # 60s, 120s, 180s, ...
+            print(f"Rate limited. Waiting {wait} seconds then retrying.")
+            time.sleep(wait)
+            continue
+
+        # Not a 429-type error, fail immediately so you can see the real issue
+        raise
+
+raise SystemExit(1)
 PY
 
-      - name: Commit and push
+      - name: Commit and push if changed
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
